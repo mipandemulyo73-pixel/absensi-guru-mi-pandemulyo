@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    :root{--green:#117b48;--pale:#e8f5eb;--blue:#2088dc;--orange:#ff9800;--red:#e53935;--teal:#008f83;--purple:#6038ae}
+    *{box-sizing:border-box}body{margin:0;background:#f4f7f8;color:#222;font-family:Arial,sans-serif}
+    .wrap{max-width:720px;margin:0 auto;padding:22px 16px 36px}.panel{background:#fff;border-radius:18px;padding:24px;box-shadow:0 4px 18px #0000000c}
+    .brand{text-align:center;color:var(--green);font-weight:700;font-size:25px;line-height:1.35}.sub{font-size:16px;color:#666;font-weight:400;margin-top:6px}
+    h2{color:var(--green);text-align:center;margin:22px 0 8px}.muted{color:#666}.clock{text-align:center;font-size:21px;margin:18px 0 24px}
+    input,select,button{font:inherit;width:100%;padding:14px;border-radius:10px;border:1px solid #ddd;margin:6px 0}
+    button{border:0;color:white;font-weight:700;cursor:pointer;background:var(--green)}button:disabled{opacity:.6}
+    .btn-blue{background:var(--blue)}.btn-orange{background:var(--orange)}.btn-red{background:var(--red)}.btn-teal{background:var(--teal)}.btn-purple{background:var(--purple)}.btn-dark{background:#444}
+    .status{background:var(--pale);color:var(--green);padding:13px;border-radius:12px;text-align:center;margin:16px 0;font-weight:700}
+    .hidden{display:none}.msg{padding:12px;border-radius:8px;margin:10px 0;background:#fff4d6}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.grid button{margin:0}
+    .card{border:1px solid #eee;border-radius:12px;padding:14px;margin:12px 0}.row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #eee}
+    .small{font-size:13px}.foot{text-align:center;color:#777;margin-top:16px;font-size:12px}
+    @media(max-width:420px){.panel{padding:18px}.grid{grid-template-columns:1fr}.brand{font-size:22px}}
+  </style>
+</head>
+<body><div class="wrap"><div class="panel">
+  <div class="brand">ABSENSI GURU<br><span style="font-size:20px">MI MIFTAHUL HUDA PANDEMULYO</span><div class="sub">Sistem Absensi Online</div></div>
+  <div id="login">
+    <h2>Login Guru / Admin</h2>
+    <input id="username" autocomplete="username" placeholder="Username">
+    <input id="password" type="password" autocomplete="current-password" placeholder="Password">
+    <button onclick="doLogin()">LOGIN</button><div id="loginMsg" class="msg hidden"></div>
+    <p class="muted small">Gunakan akun yang diberikan admin madrasah.</p>
+  </div>
+  <div id="app" class="hidden">
+    <h2 id="welcome">Selamat datang</h2>
+    <div class="status">🟢 Sistem Absensi Online</div>
+    <div class="clock"><div id="date"></div><strong id="time"></strong></div>
+    <div class="grid">
+      <button onclick="mark('masuk')">ABSEN MASUK</button>
+      <button class="btn-blue" onclick="mark('pulang')">ABSEN PULANG</button>
+      <button class="btn-orange" onclick="showLeave('Izin')">IZIN</button>
+      <button class="btn-red" onclick="showLeave('Sakit')">SAKIT</button>
+    </div>
+    <div id="leaveBox" class="card hidden"><strong id="leaveTitle">Pengajuan</strong><input type="date" id="leaveDate"><input id="leaveReason" placeholder="Alasan (opsional)"><button onclick="submitLeave()">KIRIM PENGAJUAN</button><button class="btn-dark" onclick="document.getElementById('leaveBox').classList.add('hidden')">BATAL</button></div>
+    <div id="admin" class="hidden">
+      <h2>Rekap Bulanan</h2><input type="month" id="month">
+      <button class="btn-teal" onclick="loadReport()">TAMPILKAN REKAP</button>
+      <button class="btn-teal" onclick="downloadReport('xlsx')">EXPORT EXCEL (.XLSX)</button>
+      <button class="btn-purple" onclick="downloadReport('pdf')">EXPORT PDF</button>
+      <div id="report"></div>
+    </div>
+    <h2>Absensi Hari Ini</h2><div id="todayRecords"></div>
+    <button class="btn-dark" onclick="doLogout()">LOGOUT</button>
+  </div>
+</div><div class="foot">MI Miftahul Huda Pandemulyo · Zona waktu Asia/Jakarta</div></div>
+<script>
+let token='', user=null, leaveType='Izin';
+function showMsg(id,msg){const e=document.getElementById(id);e.textContent=msg;e.classList.remove('hidden')}
+function fail(err){alert(err&&err.message?err.message:String(err))}
+function doLogin(){
+ const u=document.getElementById('username').value.trim(),p=document.getElementById('password').value;
+ google.script.run.withSuccessHandler(r=>{token=r.token;user=r.user;sessionStorage.setItem('absensiToken',token);sessionStorage.setItem('absensiUser',JSON.stringify(user));startApp()}).withFailureHandler(e=>showMsg('loginMsg',e.message||String(e))).login(u,p);
+}
+function startApp(){
+ document.getElementById('login').classList.add('hidden');document.getElementById('app').classList.remove('hidden');
+ document.getElementById('welcome').textContent='Selamat datang, '+user.nama;
+ if(user.role==='admin')document.getElementById('admin').classList.remove('hidden');
+ const d=new Date();document.getElementById('month').value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+ tick();setInterval(tick,1000);refresh();
+}
+function tick(){const d=new Date();document.getElementById('date').textContent=d.toLocaleDateString('id-ID',{timeZone:'Asia/Jakarta',day:'2-digit',month:'2-digit',year:'numeric'});document.getElementById('time').textContent=d.toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta',hour12:false})}
+function mark(action){google.script.run.withSuccessHandler(r=>{alert(r.message+' Waktu server: '+r.time);refresh()}).withFailureHandler(fail).markAttendance(token,action)}
+function refresh(){google.script.run.withSuccessHandler(r=>{document.getElementById('todayRecords').innerHTML=r.records.length?r.records.map(x=>`<div class="card"><div class="row"><b>${esc(x.nama)}</b><span>${esc(x.tanggal)}</span></div><div class="row"><span>Masuk</span><b>${esc(x.masuk||'-')}</b></div><div class="row"><span>Pulang</span><b>${esc(x.pulang||'-')}</b></div></div>`).join(''):'<p class="muted">Belum ada absensi hari ini.</p>'}).withFailureHandler(fail).getDashboard(token)}
+function showLeave(type){leaveType=type;document.getElementById('leaveTitle').textContent='Pengajuan '+type;document.getElementById('leaveDate').value=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Jakarta'});document.getElementById('leaveBox').classList.remove('hidden')}
+function submitLeave(){google.script.run.withSuccessHandler(r=>{alert(r.message);document.getElementById('leaveBox').classList.add('hidden')}).withFailureHandler(fail).submitStatus(token,leaveType,document.getElementById('leaveDate').value,document.getElementById('leaveReason').value)}
+function loadReport(){google.script.run.withSuccessHandler(rows=>{document.getElementById('report').innerHTML=rows.length?rows.map(r=>`<div class="card"><b>${esc(r.nama)}</b><div class="small">${esc(r.tanggal)} · Masuk ${esc(r.masuk||'-')} · Pulang ${esc(r.pulang||'-')}</div></div>`).join(''):'<p class="muted">Belum ada data pada bulan ini.</p>'}).withFailureHandler(fail).getReport(token,document.getElementById('month').value)}
+function downloadReport(format){google.script.run.withSuccessHandler(r=>{const bytes=atob(r.base64),arr=new Uint8Array(bytes.length);for(let i=0;i<bytes.length;i++)arr[i]=bytes.charCodeAt(i);const blob=new Blob([arr],{type:r.mimeType});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=r.filename;a.click();URL.revokeObjectURL(a.href)}).withFailureHandler(fail).exportReport(token,document.getElementById('month').value,format)}
+function doLogout(){google.script.run.withSuccessHandler(()=>{sessionStorage.clear();location.reload()}).withFailureHandler(()=>{sessionStorage.clear();location.reload()}).logout(token)}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+</script></body></html>
